@@ -1,0 +1,182 @@
+<p style="color: #d3d3d3; font-size: 18px; font-weight: bold;"> Sigueme en YT como <a href="https://www.youtube.com/@DarkAMLC"style="color: #d3d3d3; font-size: 18px; font-weight: bold; text-align: center;"> DarkAMLC</a></p>
+<textarea id="texto" rows="8" cols="60" placeholder="Pega tu texto aquí"></textarea>
+<div style="margin-top:20px; position: relative;">
+  <div style="background:#ddd; width:100%; height:25px; border-radius:5px; overflow:hidden; position: relative;">
+    <div id="barra" style="background:green; width:0%; height:100%; border-radius:5px 0 0 5px;"></div>
+    <div id="porcentaje" style="position:absolute; left:50%; top:0; transform:translateX(-50%); color:white; line-height:25px; font-weight:bold;">0%</div>
+  </div>
+  <p id="mensaje"></p>
+</div>
+<button id="btnMotivos" onclick="toggleMotivos()" style="display:none;">Mostrar motivos</button>
+<pre id="resultado" style="display:none; background:#f5f5f5; padding:10px; border-radius:5px;"></pre>
+<br><br>
+<p style="color: #d3d3d3; font-size: 18px; font-weight: bold; text-align: center;">
+  este programa solo hace una estimativa no es 100% confiable</p>
+<style>
+#texto {
+    text-align: center;
+    padding-top: 1.5em;
+    padding-bottom: 1.5em;
+    box-sizing: border-box;
+}
+#texto::placeholder {
+    text-align: center;
+    color: #999;
+}
+#btnMotivos {
+    background-color: #888;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s, transform 0.2s;
+}
+#btnMotivos:hover {
+    background-color: #666;
+    transform: scale(1.03);
+}
+</style>
+<script>
+let ultimoResultado = null;
+let timer = null;
+document.getElementById("texto").addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { analizar(); }, 500);
+});
+function analizar() {
+    const texto = document.getElementById("texto").value;
+    const resultado = detectarIA(texto);
+    ultimoResultado = resultado;
+    const barra = document.getElementById("barra");
+    const porcentaje = document.getElementById("porcentaje");
+    let width = 0;
+    const target = resultado.score;
+    barra.style.width = "0%";
+    porcentaje.textContent = "0%";
+    const anim = setInterval(() => {
+        if (width >= target) {
+            clearInterval(anim);
+        } else {
+            width++;
+            barra.style.width = width + "%";
+            porcentaje.textContent = width + "%";
+            if (width < 30) barra.style.background = "green";
+            else if (width < 60) barra.style.background = "orange";
+            else if (width < 100) barra.style.background = "red";
+            else barra.style.background = "darkred";
+        }
+    }, 20);
+    const mensaje = document.getElementById("mensaje");
+    if (resultado.score < 30) {
+        mensaje.textContent = "Parece un texto normal.";
+        mensaje.style.color = "green";
+    } else if (resultado.score < 60) {
+        mensaje.textContent = "Podría haber elementos típicos de IA.";
+        mensaje.style.color = "orange";
+    } else if (resultado.score < 100) {
+        mensaje.textContent = "Alto contenido sospechoso de IA.";
+        mensaje.style.color = "red";
+    } else {
+        mensaje.textContent = "Texto muy probablemente generado por IA.";
+        mensaje.style.color = "darkred";
+    }
+    document.getElementById("btnMotivos").style.display = "inline-block";
+    document.getElementById("btnMotivos").textContent = "Mostrar motivos";
+    document.getElementById("resultado").style.display = "none";
+}
+function toggleMotivos() {
+    const pre = document.getElementById("resultado");
+    const btn = document.getElementById("btnMotivos");
+    if (pre.style.display === "none") {
+        pre.style.display = "block";
+        pre.textContent = JSON.stringify(ultimoResultado, null, 2);
+        btn.textContent = "Ocultar motivos";
+    } else {
+        pre.style.display = "none";
+        btn.textContent = "Mostrar motivos";
+    }
+}
+function detectarIA(texto) {
+    let score = 0;
+    let motivos = [];
+
+    // --- Caracteres especiales ---
+    const patronCaracteres = /[“”«»—–…·→⁃⁂≈✘⇐⇒⇔↑↓∧∨∃≡≃∪∩⊂⊃←•✓♦©®™°¬§†‡]/gu;
+    const caracteresEspeciales = [...texto.matchAll(patronCaracteres)].map(m => m[0]);
+    if (caracteresEspeciales.length > 0) {
+        score += caracteresEspeciales.length * 7;
+        motivos.push("caracteres_especiales");
+    }
+
+    // --- Emojis ---
+    const patronEmoji = /\p{Emoji_Presentation}/gu;
+    const todosEmojis = [...texto].filter(c => patronEmoji.test(c));
+    const emojisExentos = ["😂","✨","🥰","😍","🙏","🔥","❤️","🤣","😭","😊","🥺","😢","😎","💀","💯","💖","🥳","🤔","😜","😅"];
+    let contadorEmojis = 0;
+    todosEmojis.forEach(e => {
+        if (!emojisExentos.includes(e)) contadorEmojis++;
+    });
+    score += contadorEmojis * 1; // cada emoji no exento suma 1
+    if (todosEmojis.length > 0) motivos.push("emojis");
+
+    // --- Frases típicas IA ---
+    const frasesIA = ["En conclusión", "¡Claro!","Aquí te dejo","En resumen", "A continuación", "Por lo tanto", "En definitiva", "Como resultado", "Además,", "Por último","¿Quieres"];
+    for (const frase of frasesIA) {
+        if (texto.toLowerCase().includes(frase.toLowerCase())) {
+            score += 15;
+            motivos.push("frase_tipica_ia");
+            break;
+        }
+    }
+
+    // --- Listas tipo markdown ---
+    const patronLista = /(\n- |\n\* |\n\d+\.)/u;
+    if (patronLista.test(texto)) {
+        score += 20;
+        motivos.push("estructura_lista");
+    }
+
+    // --- Conectores repetidos ---
+    const conectores = ["sin embargo", "además", "por lo tanto", "de modo que", "por consiguiente"];
+    let contadorConectores = 0;
+    conectores.forEach(c => {
+        const regex = new RegExp(c, "gi");
+        const coincidencias = texto.match(regex);
+        if (coincidencias && coincidencias.length > 1) contadorConectores++;
+    });
+    if (contadorConectores >= 2) {
+        score += 10;
+        motivos.push("exceso_conectores");
+    }
+
+    // --- Inicio de línea con emoji o asterisco ---
+    const lineas = texto.split("\n");
+    let contadorEmojiInicio = 0;
+    lineas.forEach(linea => {
+        if (/^\p{Emoji}\s[A-Z]/u.test(linea)) contadorEmojiInicio++;
+        if (/^\*\s+[A-Z0-9]/.test(linea)) contadorEmojiInicio++;
+    });
+    if (contadorEmojiInicio > 0) {
+        score += contadorEmojiInicio * 5;
+        motivos.push("inicio_emoji_mayuscula");
+    }
+
+    // --- Normalización ajustada ---
+    const palabras = Math.max(3, texto.split(/\s+/).length); // mínimo 3 palabras
+    score = (score / palabras) * 50; // factor reducido a 50
+    if (score > 100) score = 100;
+    if (score < 0) score = 0;
+
+    return {
+        score: Math.round(score),
+        esIA: score >= 100,
+        caracteres_especiales: caracteresEspeciales,
+        emojis: todosEmojis,
+        inicio_emoji_mayuscula: contadorEmojiInicio,
+        motivos: motivos,
+        palabras: palabras
+    };
+}
+</script>
